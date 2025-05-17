@@ -1,0 +1,17 @@
+{
+  "folders": [
+	{
+		"path": "."
+	},
+	{
+		"path": "../trading-bot"
+	},
+	{
+		"path": "../binance-toolbox-nodejs"
+	},
+	{
+		"path": "../solana-trading-bot"
+	}
+],
+  "settings": {}
+}
