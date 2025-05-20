@@ -1,5 +1,5 @@
 import { config } from 'dotenv';
-import logEnvInfo from './helpers/Log/index.js';
+import logEnvInfo from './helpers/LogComponent/index.js';
 import client from './client.js';
 import Account from './Account.js';
 // import Market from './Market.js';
