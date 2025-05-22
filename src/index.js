@@ -1,55 +1,68 @@
-import { config } from 'dotenv';
-import logEnvInfo from './helpers/LogComponent/index.js';
-import client from './client.js';
-import Account from './Account.js';
+import { logEnvInfo } from './helpers/LogComponent/index.js';
+import { checkTradeVariables } from './helpers/Checks/index.js';
+import {
+  SYMBOL,
+  TRADE_QUANTITY,
+  BUY_PRICE_THRESHOLD,
+  SELL_PRICE_THRESHOLD,
+} from './constants/index.js';
+import client from './client/index.js';
+// import Account from './Account.js';
 import Market from './Market.js';
 
-config();
-
 logEnvInfo();
+checkTradeVariables();
 
-const account = new Account(client);
+const checkTradeVariablesResult = checkTradeVariables();
+if (!checkTradeVariablesResult) {
+  console.error(
+    'Error: One or more environment variables are not set correctly. Trading logic will not run.'
+  );
+  process.exit(1);
+}
 
-const { SYMBOL: symbol, BUY_PRICE_THRESHOLD, SELL_PRICE_THRESHOLD, TRADE_QUANTITY } = process.env;
+const market = new Market(client, SYMBOL);
 
-if (!symbol || !BUY_PRICE_THRESHOLD || !SELL_PRICE_THRESHOLD || !TRADE_QUANTITY) {
-  console.error('Error: Missing one or more required environment variables (SYMBOL, BUY_PRICE_THRESHOLD, SELL_PRICE_THRESHOLD, TRADE_QUANTITY). Trading logic will not run.');
-} else {
-  const buyPriceThreshold = parseFloat(BUY_PRICE_THRESHOLD);
-  const sellPriceThreshold = parseFloat(SELL_PRICE_THRESHOLD);
-  const tradeQuantity = parseFloat(TRADE_QUANTITY);
+async function runTradingLogic() {
+  let currentPrice;
+  try {
+    console.log(`Fetching price for ${SYMBOL}...`);
+    const ticker = await market.getTickerPrice();
 
-  if (isNaN(buyPriceThreshold) || isNaN(sellPriceThreshold) || isNaN(tradeQuantity)) {
-    console.error('Error: BUY_PRICE_THRESHOLD, SELL_PRICE_THRESHOLD, or TRADE_QUANTITY is not a valid number. Trading logic will not run.');
-  } else {
-    const market = new Market(client, symbol);
+    if (!ticker || typeof ticker.price !== 'string') {
+      console.error(
+        `Could not fetch ticker price for ${SYMBOL}, or price is not a string. Response:`,
+        ticker
+      );
+      return;
+    }
 
-    async function runTradingLogic() {
-      let currentPrice;
-      try {
-        console.log(`Fetching price for ${symbol}...`);
-        const ticker = await market.getTickerPrice();
+    currentPrice = parseFloat(ticker.price);
+    if (isNaN(currentPrice)) {
+      console.error(
+        `Error parsing fetched price for ${SYMBOL}. Price string was: "${ticker.price}".`
+      );
+      return;
+    }
 
-        if (!ticker || typeof ticker.price !== 'string') {
-          console.error(`Could not fetch ticker price for ${symbol}, or price is not a string. Response:`, ticker);
-          return;
-        }
-        currentPrice = parseFloat(ticker.price);
-        if (isNaN(currentPrice)) {
-          console.error(`Error parsing fetched price for ${symbol}. Price string was: "${ticker.price}".`);
-          return;
-        }
-        console.log(`Current price for ${symbol}: ${currentPrice}`);
-        console.log(`Buy threshold: ${buyPriceThreshold}, Sell threshold: ${sellPriceThreshold}, Trade quantity: ${tradeQuantity}`);
-      } catch (error) {
-        console.error(`Error during price fetching or parsing for ${symbol}:`, error);
-        return; // Skip trading decision if price cannot be determined
-      }
+    console.log(`Current price for ${SYMBOL}: ${currentPrice}`);
+    console.log(
+      `Buy threshold: ${BUY_PRICE_THRESHOLD}, Sell threshold: ${SELL_PRICE_THRESHOLD}, Trade quantity: ${TRADE_QUANTITY}`
+    );
+  } catch (error) {
+    console.error(
+      `Error during price fetching or parsing for ${SYMBOL}:`,
+      error
+    );
+    return; // Skip trading decision if price cannot be determined
+  }
 
-      if (currentPrice < buyPriceThreshold) {
-    console.log(`Attempting to buy ${tradeQuantity} ${symbol} at ${currentPrice} (Threshold: < ${buyPriceThreshold})`);
+  if (currentPrice < BUY_PRICE_THRESHOLD) {
+    console.log(
+      `Attempting to buy ${TRADE_QUANTITY} ${SYMBOL} at ${currentPrice} (Threshold: < ${BUY_PRICE_THRESHOLD})`
+    );
     try {
-      const buyOrderResponse = await market.placeBuyOrder(tradeQuantity);
+      const buyOrderResponse = await market.placeBuyOrder(TRADE_QUANTITY);
       if (buyOrderResponse) {
         console.log('Buy order placed successfully:', buyOrderResponse);
       } else {
@@ -58,10 +71,12 @@ if (!symbol || !BUY_PRICE_THRESHOLD || !SELL_PRICE_THRESHOLD || !TRADE_QUANTITY)
     } catch (error) {
       console.error('Error placing buy order:', error);
     }
-  } else if (currentPrice > sellPriceThreshold) {
-    console.log(`Attempting to sell ${tradeQuantity} ${symbol} at ${currentPrice} (Threshold: > ${sellPriceThreshold})`);
+  } else if (currentPrice > SELL_PRICE_THRESHOLD) {
+    console.log(
+      `Attempting to sell ${TRADE_QUANTITY} ${SYMBOL} at ${currentPrice} (Threshold: > ${SELL_PRICE_THRESHOLD})`
+    );
     try {
-      const sellOrderResponse = await market.placeSellOrder(tradeQuantity);
+      const sellOrderResponse = await market.placeSellOrder(TRADE_QUANTITY);
       if (sellOrderResponse) {
         console.log('Sell order placed successfully:', sellOrderResponse);
       } else {
@@ -71,19 +86,12 @@ if (!symbol || !BUY_PRICE_THRESHOLD || !SELL_PRICE_THRESHOLD || !TRADE_QUANTITY)
       console.error('Error placing sell order:', error);
     }
   } else {
-    console.log(`No action taken for ${symbol}. Price ${currentPrice} is between buy threshold ${buyPriceThreshold} and sell threshold ${sellPriceThreshold}.`);
+    console.log(
+      `No action taken for ${SYMBOL}. Price ${currentPrice} is between buy threshold ${BUY_PRICE_THRESHOLD} and sell threshold ${SELL_PRICE_THRESHOLD}.`
+    );
   }
 }
 
-// account.getFundingWallet();
-// market.getThickerData(client, symbol); // This method does not exist, getThicker24Hr is the correct one
-account.getAccountData();
-account.getFundingAssets();
-  // Only run trading logic if environment variables were successfully loaded and parsed
-  if (symbol && BUY_PRICE_THRESHOLD && SELL_PRICE_THRESHOLD && TRADE_QUANTITY &&
-      !isNaN(parseFloat(BUY_PRICE_THRESHOLD)) && 
-      !isNaN(parseFloat(SELL_PRICE_THRESHOLD)) && 
-      !isNaN(parseFloat(TRADE_QUANTITY))) {
-    runTradingLogic();
-  }
-}
+await runTradingLogic().catch((error) => {
+  console.error('Error running trading logic:', error);
+});
