@@ -25,7 +25,6 @@ export default class Market {
     }
   }
 
-  // Method to fetch the current price of the symbol
   logTickerPrice() {
     this.client
       .tickerPrice(this.symbol)
@@ -60,6 +59,48 @@ export default class Market {
       return response.data;
     } catch (error) {
       console.error(`Error fetching depth for ${this.symbol}:`, error);
+      return null;
+    }
+  }
+
+  async placeBuyOrder(quantity) {
+    try {
+      const response = await this.client.newOrder(
+        this.symbol,
+        'BUY',
+        'MARKET',
+        {
+          quantity: quantity,
+        }
+      );
+      console.log(
+        `Buy order placed for ${quantity} ${this.symbol}:`,
+        response.data
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error placing buy order for ${this.symbol}:`, error);
+      return null;
+    }
+  }
+
+  async placeSellOrder(quantity) {
+    try {
+      const response = await this.client.newOrder(
+        this.symbol,
+        'SELL',
+        'MARKET',
+        {
+          quantity: quantity,
+        }
+      );
+      console.log(
+        `Sell order placed for ${quantity} ${this.symbol}:`,
+        response.data
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error placing sell order for ${this.symbol}:`, error);
       return null;
     }
   }
