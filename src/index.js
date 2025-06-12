@@ -1,4 +1,5 @@
 import { logEnvInfo } from './helpers/LogComponent/index.js';
+import Log from './helpers/LogComponent/Log.js';
 import { checkTradeVariables } from './helpers/Checks/index.js';
 import {
   SYMBOL,
@@ -7,16 +8,39 @@ import {
   SELL_PRICE_THRESHOLD,
 } from './constants/index.js';
 import client from './client/index.js';
-// import Account from './Account.js';
+import Account from './Account.js';
 import Market from './Market.js';
 
 logEnvInfo();
 checkTradeVariables();
 
+const log = new Log();
+
 const checkTradeVariablesResult = checkTradeVariables();
 if (!checkTradeVariablesResult) {
-  console.error(
+  log.error(
     'Error: One or more environment variables are not set correctly. Trading logic will not run.'
+  );
+  process.exit(1);
+}
+
+// Account verification
+try {
+  const account = new Account(client);
+  const accountData = await account.getAccountData();
+  if (accountData) {
+    log.info('API credentials verified successfully.');
+  } else {
+    // This case might not be strictly necessary if getAccountData always throws on error or returns data.
+    // However, it's good practice to handle it.
+    log.error(
+      'Error verifying API credentials. Account data was not received. Please check your API_KEY and API_SECRET. Exiting.'
+    );
+    process.exit(1);
+  }
+} catch (error) {
+  log.error(
+    `Error verifying API credentials. Please check your API_KEY and API_SECRET. Exiting. Details: ${error.message}`
   );
   process.exit(1);
 }
