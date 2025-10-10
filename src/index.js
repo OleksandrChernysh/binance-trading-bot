@@ -1,15 +1,10 @@
 import { logEnvInfo } from './helpers/LogComponent/index.js';
 import { checkTradeVariables } from './helpers/Checks/index.js';
-import {
-  SYMBOL,
-  TRADE_QUANTITY,
-  BUY_PRICE_THRESHOLD,
-  SELL_PRICE_THRESHOLD,
-} from './constants/index.js';
 import client from './client/index.js';
-import Account from './Account.js';
-import Market from './Market.js';
-import TradingBot from './TradingBot.js';
+import Prices from './Prices.js';
+import BookTicker from './BookTicker.js';
+import TriangleArbitrage from './TriangleArbitrage.js';
+import TriangleArbitrageUSDT from './TriangleArbitrageUSDT.js';
 
 logEnvInfo();
 checkTradeVariables();
@@ -22,90 +17,38 @@ if (!checkTradeVariablesResult) {
   process.exit(1);
 }
 
-const account = new Account(client);
-// account.logAccountData();
-account.logFundingAssets();
+// Add this block to fetch multiple symbols at once:
+(async () => {
+  const prices = new Prices(client);
+  const symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT']; // customize
+  await prices.logTickerPrices(symbols);
 
-// const market = new Market(client, SYMBOL);
-// const tradingBot = new TradingBot(
-//   SYMBOL,
-//   BUY_PRICE_THRESHOLD,
-//   SELL_PRICE_THRESHOLD,
-//   TRADE_QUANTITY,
-//   market
-// );
+  // Or get as a map:
+  // const priceMap = await prices.getTickerPricesMap(symbols);
+  // console.log(priceMap);
+})();
 
-// tradingBot.init()
+// Add this block to fetch best bid/ask for the same symbols:
+(async () => {
+  const bookTicker = new BookTicker(client);
+  const symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT']; // customize
+  await bookTicker.logBookTickers(symbols);
 
-// async function runTradingLogic() {
-// let currentPrice;
-// try {
-//   console.log(`Fetching price for ${SYMBOL}...`);
-//   const ticker = await market.getTickerPrice();
+  // Or as a map:
+  // const bookMap = await bookTicker.getBookTickersMap(symbols);
+  // console.log(bookMap.BTCUSDT.bidPrice, bookMap.BTCUSDT.askPrice);
+})();
 
-//   if (!ticker || typeof ticker.price !== 'string') {
-//     console.error(
-//       `Could not fetch ticker price for ${SYMBOL}, or price is not a string. Response:`,
-//       ticker
-//     );
-//     return;
-//   }
+// Triangle arbitrage between BTC/ETH/USDT
+(async () => {
+  const tri = new TriangleArbitrage(client, { feeRate: 0.001 }); // 0.1% taker fee, adjust as needed
+  const assets = ['BTC', 'ETH', 'USDT'];
+  await tri.logOpportunities(assets, 1); // starting with 1 BTC (in this example)
+})();
 
-//   currentPrice = parseFloat(ticker.price);
-//   if (isNaN(currentPrice)) {
-//     console.error(
-//       `Error parsing fetched price for ${SYMBOL}. Price string was: "${ticker.price}".`
-//     );
-//     return;
-//   }
-
-//   console.log(`Current price for ${SYMBOL}: ${currentPrice}`);
-//   console.log(
-//     `Buy threshold: ${BUY_PRICE_THRESHOLD}, Sell threshold: ${SELL_PRICE_THRESHOLD}, Trade quantity: ${TRADE_QUANTITY}`
-//   );
-// } catch (error) {
-//   console.error(
-//     `Error during price fetching or parsing for ${SYMBOL}:`,
-//     error
-//   );
-//   return; // Skip trading decision if price cannot be determined
-// }
-
-//   if (currentPrice < BUY_PRICE_THRESHOLD) {
-//     console.log(
-//       `Attempting to buy ${TRADE_QUANTITY} ${SYMBOL} at ${currentPrice} (Threshold: < ${BUY_PRICE_THRESHOLD})`
-//     );
-//     try {
-//       const buyOrderResponse = await market.placeBuyOrder(TRADE_QUANTITY);
-//       if (buyOrderResponse) {
-//         console.log('Buy order placed successfully:', buyOrderResponse);
-//       } else {
-//         console.log('Buy order failed or no response.');
-//       }
-//     } catch (error) {
-//       console.error('Error placing buy order:', error);
-//     }
-//   } else if (currentPrice > SELL_PRICE_THRESHOLD) {
-//     console.log(
-//       `Attempting to sell ${TRADE_QUANTITY} ${SYMBOL} at ${currentPrice} (Threshold: > ${SELL_PRICE_THRESHOLD})`
-//     );
-//     try {
-//       const sellOrderResponse = await market.placeSellOrder(TRADE_QUANTITY);
-//       if (sellOrderResponse) {
-//         console.log('Sell order placed successfully:', sellOrderResponse);
-//       } else {
-//         console.log('Sell order failed or no response.');
-//       }
-//     } catch (error) {
-//       console.error('Error placing sell order:', error);
-//     }
-//   } else {
-//     console.log(
-//       `No action taken for ${SYMBOL}. Price ${currentPrice} is between buy threshold ${BUY_PRICE_THRESHOLD} and sell threshold ${SELL_PRICE_THRESHOLD}.`
-//     );
-//   }
-// }
-
-// await runTradingLogic().catch((error) => {
-//   console.error('Error running trading logic:', error);
-// });
+// Triangle arbitrage between BTC/ETH/SOL through USDT
+(async () => {
+  const tri = new TriangleArbitrageUSDT(client, { feeRate: 0.001 }); // 0.1% taker fee
+  const cryptos = ['BTC', 'ETH', 'SOL']; // cryptocurrencies without 'USDT'
+  await tri.logOpportunities(cryptos, 100); // starting with 100 USDT
+})();
